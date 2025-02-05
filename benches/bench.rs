@@ -2,6 +2,20 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use wordle_simd::{wordle, wordle_simd};
 
 pub fn criterion_benchmark(c: &mut Criterion) {
+  let mut words_5 = WORDS_5.clone();
+  let mut guesses_5 = GUESSES_5.clone();
+  let mut words_10 = WORDS_10.clone();
+  let mut guesses_10 = GUESSES_10.clone();
+
+  for i in 0..50 {
+    if SHOULD_UPPERCASE[i] {
+      words_5[i] = words_5[i].to_uppercase().leak();
+      guesses_5[i] = guesses_5[i].to_uppercase().leak();
+      words_10[i] = words_10[i].to_uppercase().leak();
+      guesses_10[i] = guesses_10[i].to_uppercase().leak();
+    }
+  }
+
   c.bench_function("5 letters x50", |b| {
     b.iter(|| {
       (0..50)
@@ -158,4 +172,11 @@ pub const GUESSES_10: [&str; 50] = [
   "possession",
   "researcher",
   "houseplant",
+];
+
+pub const SHOULD_UPPERCASE: [bool; 50] = [
+  false, true, true, true, false, true, false, false, true, false, true, false, true, false, true,
+  true, false, false, true, true, false, false, false, false, false, false, false, true, true,
+  true, false, false, true, true, true, false, true, true, true, false, false, true, true, true,
+  false, false, true, false, true, false,
 ];
