@@ -51,26 +51,32 @@ unsafe fn to_indexes_simd(word: &str) -> __m128i {
 pub fn wordle_simd<const N: usize>(word: &str, guess: &str) -> [LetterResult; 16] {
   unsafe {
     let word = to_indexes_simd(word);
-    let word_array: [u8; 16] = mem::transmute(word);
     let guess = to_indexes_simd(guess);
-    let guess_array: [u8; 16] = mem::transmute(guess);
 
     // 1. Handle green ones. Others are gray.
     let equality = _mm_cmpeq_epi8(word, guess);
 
     // 2. Count unmatched letters.
-    let neq_adder = _mm_add_epi8(equality, _mm_set1_epi8(0x1));
-    let neq_adder_array: [i8; 16] = mem::transmute(neq_adder);
+    let word_array: [u8; 16] = mem::transmute(word);
+    let guess_array: [u8; 16] = mem::transmute(guess);
+    let equality_array: [u8; 16] = mem::transmute(equality);
     let mut counts = [0i8; 27];
     for i in 0..N {
-      counts[word_array[i] as usize] += neq_adder_array[i];
+      if equality_array[i] == 0 {
+        counts[word_array[i] as usize] += 1;
+      }
     }
 
     // 3. Handle yellow ones.
     let mut result: [u8; 16] = mem::transmute(equality);
     for i in 0..N {
-      counts[guess_array[i] as usize] -= if result[i] == 0 { 1 } else { 0 };
-      result[i] |= if counts[guess_array[i] as usize] >= 0 { 0x1 } else { 0x0 };
+      if result[i] == 0 {
+        let index = guess_array[i] as usize;
+        if counts[index] > 0 {
+          counts[index] -= 1;
+          result[i] = 1;
+        }
+      }
     }
 
     mem::transmute(result)
