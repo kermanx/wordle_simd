@@ -1,3 +1,5 @@
+use std::arch::x86_64::*;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LetterResult {
   Green,
@@ -35,6 +37,41 @@ pub fn wordle<const N: usize>(word: &str, guess: &str) -> [LetterResult; N] {
       }
     }
   }
+  result
+}
+
+pub fn wordle_simd<const N: usize>(word: &str, guess: &str) -> [LetterResult; N] {
+  let mut counts = [0usize; 26];
+  let mut result = [LetterResult::Gray; N];
+
+  unsafe {
+    let word_bytes = _mm_loadu_si128(word.as_ptr() as *const __m128i);
+    let guess_bytes = _mm_loadu_si128(guess.as_ptr() as *const __m128i);
+    let mask = _mm_cmpeq_epi8(word_bytes, guess_bytes);
+    let mask_array: [u8; 16] = std::mem::transmute(mask);
+
+    for i in 0..N {
+      if mask_array[i] == 0xFF {
+        result[i] = LetterResult::Green;
+      } else {
+        counts[char_byte_to_uppercase_index(word.as_bytes()[i])] += 1;
+      }
+    }
+
+    for i in 0..N {
+      if result[i] == LetterResult::Gray {
+        let letter = guess.as_bytes()[i];
+        let letter_index = char_byte_to_uppercase_index(letter);
+        result[i] = if counts[letter_index] > 0 {
+          counts[letter_index] -= 1;
+          LetterResult::Yellow
+        } else {
+          LetterResult::Gray
+        }
+      }
+    }
+  }
+
   result
 }
 

@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use wordle_simd::wordle;
+use wordle_simd::{wordle, wordle_simd};
 
 pub fn criterion_benchmark(c: &mut Criterion) {
   c.bench_function("5 letters x50", |b| {
@@ -14,6 +14,22 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     b.iter(|| {
       (0..50)
         .map(|i| wordle::<10>(black_box(WORDS_10[i]), black_box(GUESSES_10[i])))
+        .collect::<Vec<_>>()
+    })
+  });
+
+  c.bench_function("[SIMD] 5 letters x50", |b| {
+    b.iter(|| {
+      (0..50)
+        .map(|i| wordle_simd::<5>(black_box(WORDS_5[i]), black_box(GUESSES_5[i])))
+        .collect::<Vec<_>>()
+    })
+  });
+
+  c.bench_function("[SIMD] 10 letters x50", |b| {
+    b.iter(|| {
+      (0..50)
+        .map(|i| wordle_simd::<10>(black_box(WORDS_10[i]), black_box(GUESSES_10[i])))
         .collect::<Vec<_>>()
     })
   });
