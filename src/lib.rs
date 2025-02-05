@@ -8,14 +8,12 @@ pub enum LetterResult {
   Green = 0xFF,
 }
 
-fn char_byte_to_uppercase_index(c: u8) -> usize {
-  let result = (c as char).to_ascii_uppercase() as usize - 'A' as usize;
-  debug_assert!(matches!(result, 0..=25), "Invalid char: {}", c as char);
-  result
+fn char_to_index(c: u8) -> usize {
+  c as usize & 0b11111
 }
 
 pub fn wordle<const N: usize>(word: &str, guess: &str) -> [LetterResult; N] {
-  let mut counts = [0usize; 26];
+  let mut counts = [0usize; 27];
   let mut result = [LetterResult::Gray; N];
   for i in 0..N {
     let letter = word.as_bytes()[i];
@@ -23,13 +21,13 @@ pub fn wordle<const N: usize>(word: &str, guess: &str) -> [LetterResult; N] {
     if letter == guess {
       result[i] = LetterResult::Green;
     } else {
-      counts[char_byte_to_uppercase_index(letter)] += 1;
+      counts[char_to_index(letter)] += 1;
     }
   }
   for i in 0..N {
     if result[i] == LetterResult::Gray {
       let letter = guess.as_bytes()[i];
-      let letter = char_byte_to_uppercase_index(letter);
+      let letter = char_to_index(letter);
       result[i] = if counts[letter] > 0 {
         counts[letter] -= 1;
         LetterResult::Yellow
@@ -41,7 +39,7 @@ pub fn wordle<const N: usize>(word: &str, guess: &str) -> [LetterResult; N] {
   result
 }
 
-unsafe fn to_indexes_simd(word: &str) -> __m128i {
+unsafe fn str_to_indexes_simd(word: &str) -> __m128i {
   unsafe {
     let word_bytes = _mm_loadu_si128(word.as_ptr() as *const __m128i);
     _mm_and_si128(word_bytes, _mm_set1_epi8(0b11111))
@@ -50,8 +48,8 @@ unsafe fn to_indexes_simd(word: &str) -> __m128i {
 
 pub fn wordle_simd<const N: usize>(word: &str, guess: &str) -> [LetterResult; 16] {
   unsafe {
-    let word = to_indexes_simd(word);
-    let guess = to_indexes_simd(guess);
+    let word = str_to_indexes_simd(word);
+    let guess = str_to_indexes_simd(guess);
 
     // 1. Handle green ones. Others are gray.
     let equality = _mm_cmpeq_epi8(word, guess);
@@ -90,7 +88,7 @@ mod tests {
   #[test]
   fn to_indexes_simd_works() {
     let word = "AbCdE";
-    let result = unsafe { to_indexes_simd(word) };
+    let result = unsafe { str_to_indexes_simd(word) };
     let result_array: [u8; 16] = unsafe { mem::transmute(result) };
     assert_eq!(&result_array[0..5], [1, 2, 3, 4, 5]);
   }
